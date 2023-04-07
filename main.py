@@ -72,9 +72,10 @@ for epoch in range(EPOCH):
                    batched_targets=inputs['targets'])
 
         if batch_idx % EVALUATE_INTERVAL == 0:
-            model_evaluate(model, val_ds)
-
+            pass
         batch_idx += 1
-        print(f"train loss is: {loss_metrics.result().numpy()}")
+        
+    model_evaluate(model, val_ds)
+    print(f"train loss is: {loss_metrics.result().numpy()}")
 
     loss_metrics.reset_states()
