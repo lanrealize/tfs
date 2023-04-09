@@ -6,19 +6,24 @@ import numpy as np
 class TFSModel(tf.keras.Model):
     def __init__(self):
         super().__init__()
-        self.lstm = tf.keras.layers.LSTM(64)
-        self.dropout1 = tf.keras.layers.Dropout(0.1)
-        self.dense = tf.keras.layers.Dense(32)
-        self.dropout2= tf.keras.layers.Dropout(0.1)
+        self.lstm1 = tf.keras.layers.LSTM(64, return_sequences=True)
+        self.lstm2 = tf.keras.layers.LSTM(128, return_sequences=True)
+        self.lstm3 = tf.keras.layers.LSTM(256)
+        self.dense = tf.keras.layers.Dense(64)
         self.regressor = tf.keras.layers.Dense(3)
         self.softmax = tf.keras.layers.Softmax()
 
     def call(self, inputs, training=False):
-        lstm_outputs = self.lstm(inputs)  # [batch_size, 20]
-        lstm_outputs = self.dropout1(lstm_outputs)
-        dense_outputs = self.dense(lstm_outputs)  # [batch_size, 128]
-        dense_outputs = self.dropout2(dense_outputs)
+        lstm1_outputs = self.lstm1(inputs)
+        # lstm1_outputs = tf.keras.layers.Dropout(0.3)(lstm1_outputs)
+        lstm2_outputs = self.lstm2(lstm1_outputs)
+        # lstm2_outputs = tf.keras.layers.Dropout(0.3)(lstm2_outputs)
+        lstm3_outputs = self.lstm3(lstm2_outputs)
+        # lstm3_outputs = tf.keras.layers.Dropout(0.3)(lstm3_outputs)
+        dense_outputs = self.dense(lstm3_outputs)  # [batch_size, 128]
+        # dense_outputs = tf.keras.layers.Dropout(0.3)(dense_outputs)
         regressor_outputs = self.regressor(dense_outputs)  # [batch_size, 3]
+        # regressor_outputs = tf.keras.layers.Dropout(0.3)(regressor_outputs)
         outputs = self.softmax(regressor_outputs)  # [batch_size, 3]
         return outputs
 

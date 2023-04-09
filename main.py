@@ -5,13 +5,14 @@ import tensorflow as tf
 from tqdm.auto import tqdm
 from model import TFSModel, train_step, model_evaluate
 
-STATUS_INDICATOR = 1
-SEQUENCE_LENGTH = 15
-BATCH_SIZE = 32
+STATUS_INDICATOR = 3
+SEQUENCE_LENGTH = 20
+BATCH_SIZE = 64
 
 # Train parameters
 EPOCH = 1000
 EVALUATE_INTERVAL = 7
+LEARNING_RATE = 0.003
 
 data_file = r"./data/train_data.csv"
 train_df = pd.read_csv(data_file)
@@ -56,7 +57,7 @@ train_ds = tf.data.Dataset.from_tensor_slices({'inputs': model_train_inputs, 'ta
 val_ds = tf.data.Dataset.from_tensor_slices({'inputs': model_val_inputs, 'targets': model_val_targets}).batch(BATCH_SIZE).prefetch(tf.data.experimental.AUTOTUNE)
 
 model = TFSModel()
-optimizer = tf.keras.optimizers.Adam(learning_rate=0.0005)
+optimizer = tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE)
 loss = tf.keras.losses.CategoricalCrossentropy()
 loss_metrics = tf.keras.metrics.Mean()
 
@@ -64,6 +65,7 @@ for epoch in range(EPOCH):
     print(f'epoch {epoch}:')
     batch_idx = 0
     for inputs in train_ds:
+        model_evaluate(model, val_ds)
         train_step(model=model,
                    optimizer=optimizer,
                    loss=loss,
@@ -74,8 +76,6 @@ for epoch in range(EPOCH):
         if batch_idx % EVALUATE_INTERVAL == 0:
             pass
         batch_idx += 1
-        
-    model_evaluate(model, val_ds)
     print(f"train loss is: {loss_metrics.result().numpy()}")
 
     loss_metrics.reset_states()
