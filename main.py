@@ -6,7 +6,7 @@ from data import build_ds
 # Train parameters
 EPOCH = 1000
 EVALUATE_INTERVAL = 7
-LEARNING_RATE = 0.00003
+LEARNING_RATE = 0.0003
 
 train_ds, val_ds = build_ds()
 

@@ -11,6 +11,8 @@ def build_ds():
     data_file = r"./data/train_data.csv"
     train_df = pd.read_csv(data_file)
 
+    add_features(r"./data/sh.000001.上证综合指数.csv", train_df, 10, 1e10, 1e11, 100)
+
     drop_rows = (train_df.loc[train_df.loc[:, 'volume'] == 0]).index.tolist() + [0]
     drop_columns = ['date', 'code', 'isST', 'adjustflag', 'tradestatus'] + ['peTTM', 'psTTM', 'pcfNcfTTM', 'pbMRQ']
 
@@ -56,43 +58,11 @@ def build_ds():
     return train_ds, val_ds
 
 
-turn_adjust = 10
-volume_adjust = 1e10
-amount_adjust = 1e11
-price_adjust = 100
-
-data_file = r"./data/train_data.csv"
-train_df = pd.read_csv(data_file)
-
-feature_file = r"./data/sh.000001.上证综合指数.csv"
-feature_df = pd.read_csv(feature_file)
-
-start_idx = feature_df.loc[feature_df.loc[:, 'date'] == train_df.iloc[0, 0]].index.tolist()[0]
-end_idx = feature_df.loc[feature_df.loc[:, 'date'] == train_df.iloc[-1, 0]].index.tolist()[0]
-
-feature_df = feature_df.iloc[start_idx: end_idx + 1].reset_index(drop=True)
-
-feature_df.loc[:, 'volume'] /= volume_adjust
-feature_df.loc[:, 'amount'] /= amount_adjust
-feature_df.loc[:, 'turn'] *= turn_adjust
-feature_df['sh_index'] = feature_df.apply(lambda x: (x.loc['open'] + x.loc['close'] + x.loc['high'] + x.loc['low']) / 4, axis=1)
-
-feature_dates = feature_df.loc[:, 'date']
-train_dates = train_df.loc[:, 'date']
-if False not in (feature_dates == train_dates).unique() and len((feature_dates == train_dates).unique()) == 1:
-    train_df.loc[:, 'sh_index'] = feature_df['sh_index']
-    train_df.loc[:, 'sh_turn'] = feature_df['turn']
-    train_df.loc[:, 'sh_turn'] = feature_df['amount']
-    train_df.loc[:, 'sh_volume'] = feature_df['volume']
-
-print()
-
-
-def add_features(feature_file, turn_adjust, volume_adjust, amount_adjust, price_adjust):
+def add_features(feature_file,arg_train_df, turn_adjust, volume_adjust, amount_adjust, price_adjust):
     feature_df = pd.read_csv(feature_file)
 
-    start_idx = feature_df.loc[feature_df.loc[:, 'date'] == train_df.iloc[0, 0]].index.tolist()[0]
-    end_idx = feature_df.loc[feature_df.loc[:, 'date'] == train_df.iloc[-1, 0]].index.tolist()[0]
+    start_idx = feature_df.loc[feature_df.loc[:, 'date'] == arg_train_df.iloc[0, 0]].index.tolist()[0]
+    end_idx = feature_df.loc[feature_df.loc[:, 'date'] == arg_train_df.iloc[-1, 0]].index.tolist()[0]
 
     feature_df = feature_df.iloc[start_idx: end_idx + 1].reset_index(drop=True)
 
@@ -104,11 +74,17 @@ def add_features(feature_file, turn_adjust, volume_adjust, amount_adjust, price_
     feature_df.loc[:, 'sh_index'] /= price_adjust
 
     feature_dates = feature_df.loc[:, 'date']
-    train_dates = train_df.loc[:, 'date']
+    train_dates = arg_train_df.loc[:, 'date']
     if False not in (feature_dates == train_dates).unique() and len((feature_dates == train_dates).unique()) == 1:
-        train_df.loc[:, 'sh_index'] = feature_df['sh_index']
-        train_df.loc[:, 'sh_turn'] = feature_df['turn']
-        train_df.loc[:, 'sh_turn'] = feature_df['amount']
-        train_df.loc[:, 'sh_volume'] = feature_df['volume']
+        arg_train_df.loc[:, 'sh_index'] = feature_df['sh_index']
+        arg_train_df.loc[:, 'sh_turn'] = feature_df['turn']
+        arg_train_df.loc[:, 'sh_amount'] = feature_df['amount']
+        arg_train_df.loc[:, 'sh_volume'] = feature_df['volume']
 
-        return train_df
+        for idx, row in arg_train_df.iterrows():
+            if row.loc['sh_turn'] == 0:
+                last_turn = arg_train_df.loc[idx - 1, 'sh_turn']
+                last_volume = arg_train_df.loc[idx - 1, 'sh_volume']
+                ratio = last_turn / last_volume
+
+                arg_train_df.loc[idx, 'sh_turn'] = ratio * row.loc['sh_volume']
