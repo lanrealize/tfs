@@ -1,15 +1,7 @@
-import tensorflow as tf
+import pandas as pd
 
-# lstm = tf.keras.layers.LSTM(5, return_state=True, return_sequences=True)
+a = pd.Series([True, True])
 
-# lstm = tf.keras.layers.LSTM(5)  # [32, 5]
-
-# lstm = tf.keras.layers.LSTM(5, return_sequences=True)  # 32 10 5
-
-lstm = tf.keras.layers.LSTM(5, return_state=True)  # [32, 5]
-
-inputs = tf.random.normal([32, 10, 8])
-
-output = lstm(inputs)
 
 print()
+# a.apply(lambda x: x.iloc[2] = 0, axis=0)
