@@ -1,5 +1,6 @@
 import random
 
+import numpy
 import pandas as pd
 import tensorflow as tf
 from tqdm.auto import tqdm
@@ -11,19 +12,24 @@ def build_ds():
     data_file = r"./data/train_data.csv"
     train_df = pd.read_csv(data_file)
 
-    add_features(r"./data/sh.000001.上证综合指数.csv", train_df, 10, 1e10, 1e11, 100)
+    add_features(r"./data/sh.000001.上证综合指数.csv", train_df, 10, 1e10, 1e11, 500)
 
-    drop_rows = (train_df.loc[train_df.loc[:, 'volume'] == 0]).index.tolist() + [0]
-    drop_columns = ['date', 'code', 'isST', 'adjustflag', 'tradestatus'] + ['peTTM', 'psTTM', 'pcfNcfTTM', 'pbMRQ']
+    adjust_pct(train_df, 'open', 'close', 'pctChg')
+
+    train_df['index'] = train_df.apply(
+        lambda x: (x.loc['open'] + x.loc['close'] + x.loc['high'] + x.loc['low']) / 4, axis=1)
+
+    drop_rows = (train_df.loc[train_df.loc[:, 'volume'] == 0]).index.tolist() + [0, 1, 2, 3, 4, 5, 6]
+    drop_columns = ['date', 'code', 'isST', 'adjustflag', 'tradestatus'] + ['peTTM', 'psTTM', 'pcfNcfTTM', 'pbMRQ'] + ['open', 'close', 'high', 'low', 'volume', 'amount', 'sh_amount', 'sh_volume']
 
     train_df.drop(drop_columns, axis=1, inplace=True)
     train_df.drop(drop_rows, inplace=True)
 
-    volume_adjust_factor = 1e7
-    amount_adjust_factor = 1e8
+    # volume_adjust_factor = 1e7
+    # amount_adjust_factor = 1e8
 
-    train_df.loc[:, 'volume'] /= volume_adjust_factor
-    train_df.loc[:, 'amount'] /= amount_adjust_factor
+    # train_df.loc[:, 'volume'] /= volume_adjust_factor
+    # train_df.loc[:, 'amount'] /= amount_adjust_factor
 
     train_inputs = []
     train_targets = []
@@ -32,8 +38,8 @@ def build_ds():
         if idx > len(train_df) - 1 - SEQUENCE_LENGTH:
             break
         else:
-            train_inputs.append(tf.expand_dims(tf.convert_to_tensor(train_df.iloc[idx: idx + 15], dtype=tf.float32), axis=0))
-            train_target = [1, 0, 0] if train_df.iloc[idx + 15, 7] < -STATUS_INDICATOR else [0, 1, 0] if train_df.iloc[idx + 15, 7] < STATUS_INDICATOR else [0, 0, 1]
+            train_inputs.append(tf.expand_dims(tf.convert_to_tensor(train_df.iloc[idx: idx + SEQUENCE_LENGTH], dtype=tf.float32), axis=0))
+            train_target = [1, 0, 0] if train_df.iloc[idx + SEQUENCE_LENGTH, 1] < -STATUS_INDICATOR else [0, 1, 0] if train_df.iloc[idx + SEQUENCE_LENGTH, 1] < STATUS_INDICATOR else [0, 0, 1]
             train_targets.append(tf.expand_dims(tf.convert_to_tensor(train_target, dtype=tf.int8), axis=0))
 
     train_inputs_tensor = tf.concat(train_inputs, axis=0)
@@ -58,7 +64,7 @@ def build_ds():
     return train_ds, val_ds
 
 
-def add_features(feature_file,arg_train_df, turn_adjust, volume_adjust, amount_adjust, price_adjust):
+def add_features(feature_file, arg_train_df, turn_adjust, volume_adjust, amount_adjust, price_adjust):
     feature_df = pd.read_csv(feature_file)
 
     start_idx = feature_df.loc[feature_df.loc[:, 'date'] == arg_train_df.iloc[0, 0]].index.tolist()[0]
@@ -81,10 +87,23 @@ def add_features(feature_file,arg_train_df, turn_adjust, volume_adjust, amount_a
         arg_train_df.loc[:, 'sh_amount'] = feature_df['amount']
         arg_train_df.loc[:, 'sh_volume'] = feature_df['volume']
 
-        for idx, row in arg_train_df.iterrows():
-            if row.loc['sh_turn'] == 0:
-                last_turn = arg_train_df.loc[idx - 1, 'sh_turn']
-                last_volume = arg_train_df.loc[idx - 1, 'sh_volume']
-                ratio = last_turn / last_volume
+        adjust_turn(arg_train_df, 'sh_turn', 'sh_volume')
 
-                arg_train_df.loc[idx, 'sh_turn'] = ratio * row.loc['sh_volume']
+
+def adjust_turn(df, turn_column, volume_column):
+    for idx, row in df.iterrows():
+        if row.loc[turn_column] == 0 or row.loc[turn_column] == numpy.NaN:
+            last_turn = df.loc[idx - 1, turn_column]
+            last_volume = df.loc[idx - 1, volume_column]
+            ratio = last_turn / last_volume
+
+            df.loc[idx, turn_column] = ratio * row.loc[volume_column]
+
+
+def adjust_pct(df, open_column, close_column, pct_column):
+    for idx, row in df.iterrows():
+        if row.loc[pct_column] == 0:
+            df.loc[idx, pct_column] = (df.loc[idx, close_column] - df.loc[idx, open_column]) / df.loc[idx, open_column]
+
+
+build_ds()
