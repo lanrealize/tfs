@@ -15,6 +15,7 @@ def build_ds():
 
     drop_rows = (train_df.loc[train_df.loc[:, 'volume'] == 0]).index.tolist() + [0]
     drop_columns = ['date', 'code', 'isST', 'adjustflag', 'tradestatus'] + ['peTTM', 'psTTM', 'pcfNcfTTM', 'pbMRQ']
+    # drop_columns = ['date', 'code', 'isST', 'adjustflag', 'tradestatus'] + ['peTTM']
 
     train_df.drop(drop_columns, axis=1, inplace=True)
     train_df.drop(drop_rows, inplace=True)
@@ -25,6 +26,12 @@ def build_ds():
     train_df.loc[:, 'volume'] /= volume_adjust_factor
     train_df.loc[:, 'amount'] /= amount_adjust_factor
 
+    for column in tqdm(train_df.columns):
+        if column != 'pctChg':
+            train_df[column] = train_df[column].apply(lambda x: (x - train_df[column].min()) / (train_df[column].max() - train_df[column].min()))
+        else:
+            train_df[column] = train_df[column].apply(lambda x: x / train_df[column].abs().max())
+
     train_inputs = []
     train_targets = []
 
@@ -32,8 +39,8 @@ def build_ds():
         if idx > len(train_df) - 1 - SEQUENCE_LENGTH:
             break
         else:
-            train_inputs.append(tf.expand_dims(tf.convert_to_tensor(train_df.iloc[idx: idx + 15], dtype=tf.float32), axis=0))
-            train_target = [1, 0, 0] if train_df.iloc[idx + 15, 7] < -STATUS_INDICATOR else [0, 1, 0] if train_df.iloc[idx + 15, 7] < STATUS_INDICATOR else [0, 0, 1]
+            train_inputs.append(tf.expand_dims(tf.convert_to_tensor(train_df.iloc[idx: idx + SEQUENCE_LENGTH], dtype=tf.float32), axis=0))
+            train_target = [1, 0, 0] if train_df.iloc[idx + SEQUENCE_LENGTH, 7] < -STATUS_INDICATOR else [0, 1, 0] if train_df.iloc[idx + SEQUENCE_LENGTH, 7] < STATUS_INDICATOR else [0, 0, 1]
             train_targets.append(tf.expand_dims(tf.convert_to_tensor(train_target, dtype=tf.int8), axis=0))
 
     train_inputs_tensor = tf.concat(train_inputs, axis=0)
@@ -88,3 +95,6 @@ def add_features(feature_file,arg_train_df, turn_adjust, volume_adjust, amount_a
                 ratio = last_turn / last_volume
 
                 arg_train_df.loc[idx, 'sh_turn'] = ratio * row.loc['sh_volume']
+
+
+# build_ds()
