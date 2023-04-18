@@ -32,8 +32,8 @@ def build_ds():
         if idx > len(train_df) - 1 - SEQUENCE_LENGTH:
             break
         else:
-            train_inputs.append(tf.expand_dims(tf.convert_to_tensor(train_df.iloc[idx: idx + 15], dtype=tf.float32), axis=0))
-            train_target = [1, 0, 0] if train_df.iloc[idx + 15, 7] < -STATUS_INDICATOR else [0, 1, 0] if train_df.iloc[idx + 15, 7] < STATUS_INDICATOR else [0, 0, 1]
+            train_inputs.append(tf.expand_dims(tf.convert_to_tensor(train_df.iloc[idx: idx + SEQUENCE_LENGTH], dtype=tf.float32), axis=0))
+            train_target = [1, 0, 0] if train_df.iloc[idx + SEQUENCE_LENGTH, 7] < -STATUS_INDICATOR else [0, 1, 0] if train_df.iloc[idx + SEQUENCE_LENGTH, 7] < STATUS_INDICATOR else [0, 0, 1]
             train_targets.append(tf.expand_dims(tf.convert_to_tensor(train_target, dtype=tf.int8), axis=0))
 
     train_inputs_tensor = tf.concat(train_inputs, axis=0)
